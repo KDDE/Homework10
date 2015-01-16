@@ -70,7 +70,7 @@
 
             var customTimeFormat = d3.time.format.multi([
                 ["%b %d", function(d) { return d.getDate() != 1; }],
-                ["%B", function(d) {  return d.getMonth(); }],
+                ["%b", function(d) {  return d.getMonth(); }],
                 ["%Y", function(d) {  return true; }]
             ]);
 
@@ -105,6 +105,8 @@
                 });
 
                 x.domain(d3.extent(data, function(d) { return d.date; }));
+                // make a copy of x's domain, because we'll change x later
+                var x0 = x.copy().domain();
 
                 y.domain([
                     d3.min(cities, function(c) { return d3.min(c.values, function(v) { return v.temperature; }); }),
@@ -140,17 +142,13 @@
 
                 d3.select(".x.axis").selectAll(".tick").select("text")
                     .style("cursor", "pointer")
+                    .attr("fill", "steelblue")
                     .on("click", zoom);
 
                 function zoom(d) {
                     var start_date = d3.time.month(d),
                         end_date = d3.time.month.offset(start_date, 1);
                     x.domain([start_date, end_date]);
-
-                    d3.select(".x.axis")
-                        .transition()
-                        .duration(1500)
-                        .call(xAxis);
 
                     var new_cities = city_filter()
 
@@ -159,11 +157,6 @@
 
                 function on_change() {
                     var new_cities = city_filter();
-
-                    y.domain([
-                        d3.min(new_cities, function(c) { return d3.min(c.values, function(v) { return v.temperature; }); }),
-                        d3.max(new_cities, function(c) { return d3.max(c.values, function(v) { return v.temperature; }); })
-                    ]);
 
                     var city = svg.selectAll(".city")
                         .data(new_cities, function(d) { return d.name; });
@@ -201,6 +194,23 @@
                 }
 
                 function city_update(city) {
+                    d3.select(".x.axis")
+                        .transition()
+                        .duration(1500)
+                        .call(xAxis)
+                      .selectAll(".tick")
+                      .select("text")
+                        .each(function(d) {
+                            if (x0[0] <= d && d <= x0[1] && d.getDate() == 1)
+                                d3.select(this)
+                                    .style("cursor", "pointer")
+                                    .attr("fill", "steelblue")
+                                    .on("click", zoom);
+                            else if (d < x0[0] || x0[1] < d)
+                                d3.select(this)
+                                    .attr("fill", "red");
+                        })
+
                     d3.select(".y.axis")
                         .transition()
                         .duration(1500)
@@ -240,16 +250,25 @@
                 }
 
                 function city_filter() {
-                    return cities.filter(function(d) {
-                        return d3.select("input#checkbox_" + d.name).property("checked");
-                    }).map(function(d) {
-                        return {
-                            name: d.name,
-                            values: d.values.filter(function(d) {
-                                return x.domain()[0] <= d.date && d.date < x.domain()[1];
-                            })
-                        };
-                    });
+                    var new_cities = cities
+                        .filter(function(d) {
+                            return d3.select("input#checkbox_" + d.name).property("checked");
+                        })
+                        .map(function(d) {
+                            return {
+                                name: d.name,
+                                values: d.values.filter(function(d) {
+                                    return x.domain()[0] <= d.date && d.date < x.domain()[1];
+                                })
+                            };
+                        });
+
+                    y.domain([
+                        d3.min(new_cities, function(c) { return d3.min(c.values, function(v) { return v.temperature; }); }),
+                        d3.max(new_cities, function(c) { return d3.max(c.values, function(v) { return v.temperature; }); })
+                    ]);
+
+                    return new_cities;
                 }
             });
         </script>
