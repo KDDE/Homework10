@@ -133,17 +133,32 @@
                     .style("text-anchor", "end")
                     .text("PSI");
 
-                var city = svg.selectAll(".city")
-                    .data(cities);
-
-                city_enter(city);
-
+                // we display our data here
+                city_enter(svg.selectAll(".city").data(cities));
+                // bind event for checkbox
                 d3.selectAll("input").on("change", on_change);
 
+                d3.select(".x.axis").selectAll(".tick").select("text")
+                    .style("cursor", "pointer")
+                    .on("click", zoom);
+
+                function zoom(d) {
+                    var start_date = d3.time.month(d),
+                        end_date = d3.time.month.offset(start_date, 1);
+                    x.domain([start_date, end_date]);
+
+                    d3.select(".x.axis")
+                        .transition()
+                        .duration(1500)
+                        .call(xAxis);
+
+                    var new_cities = city_filter()
+
+                    city_update(svg.selectAll(".city").data(new_cities, function(d) { return d.name; }));
+                }
+
                 function on_change() {
-                    var new_cities = cities.filter(function(d) {
-                        return d3.select("input#checkbox_" + d.name).property("checked");
-                    });
+                    var new_cities = city_filter();
 
                     y.domain([
                         d3.min(new_cities, function(c) { return d3.min(c.values, function(v) { return v.temperature; }); }),
@@ -156,7 +171,6 @@
                     city_enter(city);
                     city_update(city);
                     city_exit(city);
-
                 }
 
                 function city_enter(city) {
@@ -223,7 +237,19 @@
                             // remove city when transition ends
                             this.parentNode.remove();
                         });
-                            console.log("!");
+                }
+
+                function city_filter() {
+                    return cities.filter(function(d) {
+                        return d3.select("input#checkbox_" + d.name).property("checked");
+                    }).map(function(d) {
+                        return {
+                            name: d.name,
+                            values: d.values.filter(function(d) {
+                                return x.domain()[0] <= d.date && d.date < x.domain()[1];
+                            })
+                        };
+                    });
                 }
             });
         </script>
